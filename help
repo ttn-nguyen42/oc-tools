@@ -195,6 +195,16 @@ open_tool() {
     esac
 }
 
+compile_aml() {
+    if [ -z "$1" ]; then
+        echo "No DSL source code found"
+        exit 10
+    fi
+    compiler_dir=$root_dir/TOOLS/ACPI/iasl.exe
+    $compiler_dir "$2"
+    echo "Compiled AML is in the same directory as $2"
+}   
+
 # Options
 case "$1" in
 recovery)
@@ -221,6 +231,9 @@ cdtool)
 mv)
     move_file "$2" "$3" "$4"
     ;;
+compile)
+    compile_aml "$2"
+    ;;
 *)
     echo "Help"
     echo "$0 recovery [sur | monterey]"
@@ -231,6 +244,7 @@ mv)
     echo "$0 open [usb-drive-letter] [tree | gensmbios | usb | ssdt]"
     echo "$0 init [usb-drive-letter] [sur | monterey]"
     echo "$0 mv [acpi | driver | kext | tools | boot] [usb-letter] [path]"
+    echo "$0 compile [at]"
     exit 10
     ;;
 esac
