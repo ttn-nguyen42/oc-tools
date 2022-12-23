@@ -1,0 +1,234 @@
+#!/bin/bash
+
+# Root directory
+root_dir=$(pwd)
+
+# USB EFI directory
+x64_dir="$root_dir/X64"
+efi_dir="$x64_dir/EFI"
+
+# Location of the MacOS packages installers
+macos_pkg_dir="$root_dir/Utilities/macrecovery"
+
+get_recovery() {
+    if [ "$1" == "sur" ]; then
+        echo "Downloading Big Sur packages"
+        # Big Sur
+        py $macos_pkg_dir/macrecovery.py -b Mac-42FD25EABCABB274 -m 00000000000000000 download
+
+    elif [ "$1" == "monterey" ]; then
+        echo "Downloading Monterey packages"
+        # Monterey
+        py $macos_pkg_dir/macrecovery.py -b Mac-42FD25EABCABB274 -m 00000000000000000 download
+    else
+        echo "Recovery image not specified"
+        echo "Options: sur | monterey"
+        exit 10
+    fi
+    # Move package to root directory
+    if [ -d $root_dir/com.apple.recovery.boot ]; then
+        mkdir -p $root_dir/recovery_$1
+        mv $root_dir/com.apple.recovery.boot $root_dir/recovery_$1
+        echo "Recovery image downloaded"
+    else
+        echo "Recovery download failed"
+        exit 10
+    fi
+}
+
+add_efi() {
+    if [ -z "$1" ]; then
+        echo "Missing the path for USB drive letter"
+        exit 10
+    fi
+    usb_dir="$1:/"
+    if [ -z "$2" ]; then
+        echo "Missing MacOS version"
+        exit 10
+    fi
+    if [ ! -d $root_dir/recovery_$2 ]; then
+        echo "Recovery image for $2 version not found"
+        exit 10
+    fi
+    if [ -d $usb_dir/com.apple.recovery.boot ]; then
+        echo "USB already include recovery image"
+    else
+        # Copy recovery image
+        cp -r $root_dir/recovery_$2/* $usb_dir
+        echo "Copied recovery image to successfully"
+    fi
+    if [ -d $usb_dir/EFI ]; then
+        echo "USB already have EFI files"
+    else
+        # Copy only the essential starting files
+        cd $usb_dir
+        mkdir -p EFI/BOOT
+        mkdir -p EFI/OC/ACPI
+        mkdir -p EFI/OC/Bootstrap
+        mkdir -p EFI/OC/Drivers
+        mkdir -p EFI/OC/Kexts
+        mkdir -p EFI/OC/Resources
+        mkdir -p EFI/OC/Tools
+        cd $root_dir
+
+        # OpenCore.efi
+        cp -n $x64_dir/EFI/OC/OpenCore.efi $usb_dir/EFI/OC/
+
+        # BOOTx64.efi
+        cp -n $x64_dir/EFI/BOOT/BOOTx64.efi $usb_dir/EFI/BOOT/
+
+        # Mandatory drivers
+        template_driver_dir=EFI/OC/Drivers
+        template_tools_dir=EFI/OC/Tools
+
+        # OpenRuntime.efi
+        cp -n $x64_dir/$template_driver_dir/OpenRuntime.efi $usb_dir/$template_driver_dir/
+
+        # ResetNvramEntry.efi
+        cp -n $x64_dir/$template_driver_dir/ResetNvramEntry.efi $usb_dir/$template_driver_dir/
+        cp -n $x64_dir/$template_tools_dir/OpenShell.efi $usb_dir/$template_tools_dir/
+
+        echo "Copied starting drivers, tools successfully"
+    fi
+    if [ -f $usb_dir/EFI/OC/config.plist ]; then
+        echo "config.plist already exist on USB"
+    else
+        cp $root_dir/Docs/Sample.plist $usb_dir/EFI/OC
+        mv $usb_dir/EFI/OC/Sample.plist $usb_dir/EFI/OC/config.plist
+        echo "Copied starting config.plist successfull"
+    fi
+}
+
+download() {
+    if [ -z "$1" ]; then
+        echo "Missing the URL"
+        exit 10
+    fi
+    dl_dir=$root_dir/GET
+    mkdir -p $dl_dir
+    cd $dl_dir
+    curl -LO "$1"
+    echo "Saved to $dl_dir"
+    cd $root_dir
+}
+
+get_tools() {
+        if [ -z "$1" ]; then
+        echo "Missing the URL"
+        exit 10
+    fi
+    dl_dir=$root_dir/TOOLS
+    mkdir -p $dl_dir
+    cd $dl_dir
+    curl -LO "$1"
+    echo "Saved to $dl_dir"
+    cd $root_dir
+}
+
+move_file() {
+    if [ "$#" -ne 3 ]; then
+        echo "Missing argument"
+        echo "mv [acpi | driver | kext | tools | boot] [usb-letter] [path]"
+        exit 10
+    fi 
+    dest=""
+    usb_dir="$2:"
+    case "$1" in
+    acpi)
+        dest="EFI/OC/ACPI"
+        ;;
+    driver)
+        dest="EFI/OC/Drivers"
+        ;;
+    kext)
+        dest="EFI/OC/Kexts"
+        ;;
+    tools)
+        dest="EFI/OC/Tools"
+        ;;
+    boot)
+        dest="EFI/BOOT"
+        ;;
+    *)
+        echo "Incorrect file type"
+        exit 10
+        ;;
+    esac
+    cp -r $3 $usb_dir/$dest
+    echo "Copied $3 to $usb_dir/$dest" 
+}
+
+open_tool() {
+    if [ -z "$1" ]; then
+        echo "No USB drive specified"
+        exit 10
+    fi
+    if [ -z "$2" ]; then
+        echo "No tool specified"
+        exit 10
+    fi
+    dest=""
+    usb_dir="$1:"
+    usb_plist="$1:/EFI/OC/config.plist"
+    
+    case "$2" in
+    tree)
+        dest="$root_dir/TOOLS/ProperTree/ProperTree.bat"
+        $dest $usb_plist
+        ;;
+    gensmbios)
+        dest="$root_dir/TOOLS/GenSMBIOS/GenSMBIOS.bat"
+        $dest
+        ;;
+    usb)
+        dest="$root_dir/TOOLS/Windows.exe"
+        $dest
+        ;;
+    *)
+        echo "Incorrect tool type"
+        exit 10
+        ;;
+    esac
+}
+
+# Options
+case "$1" in
+recovery)
+    get_recovery "$2"
+    ;;
+init)
+    add_efi "$2" "$3"
+    ;;
+get-tools)
+    get_tools "$2"
+    ;;
+open)
+    open_tool "$2" "$3"
+    ;;
+download)
+    download "$2"
+    ;;
+cd)
+    echo $root_dir/GET
+    ;;
+cdtool)
+    echo $root_dir/TOOLS
+    ;;
+mv)
+    move_file "$2" "$3" "$4"
+    ;;
+*)
+    echo "Help"
+    echo "$0 recovery [sur | monterey]"
+    echo "$0 get-tools [url]"
+    echo "$0 download [url]"
+    echo "$0 cd"
+    echo "$0 cdtool"
+    echo "$0 open [usb-drive-letter] [tree | gensmbios | usb]"
+    echo "$0 init [usb-drive-letter] [sur | monterey]"
+    echo "$0 mv [acpi | driver | kext | tools | boot] [usb-letter] [path]"
+    exit 10
+    ;;
+esac
+
+exit $?
