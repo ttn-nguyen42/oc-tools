@@ -184,6 +184,10 @@ open_tool() {
         dest="$root_dir/TOOLS/Windows.exe"
         $dest
         ;;
+    ssdt)
+        dest="$root_dir/TOOLS/SSDTTime/SSDTTime.bat"
+        $dest
+        ;;
     *)
         echo "Incorrect tool type"
         exit 10
@@ -224,7 +228,7 @@ mv)
     echo "$0 download [url]"
     echo "$0 cd"
     echo "$0 cdtool"
-    echo "$0 open [usb-drive-letter] [tree | gensmbios | usb]"
+    echo "$0 open [usb-drive-letter] [tree | gensmbios | usb | ssdt]"
     echo "$0 init [usb-drive-letter] [sur | monterey]"
     echo "$0 mv [acpi | driver | kext | tools | boot] [usb-letter] [path]"
     exit 10
