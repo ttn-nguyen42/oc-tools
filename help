@@ -19,7 +19,7 @@ get_recovery() {
     elif [ "$1" == "monterey" ]; then
         echo "Downloading Monterey packages"
         # Monterey
-        py $macos_pkg_dir/macrecovery.py -b Mac-42FD25EABCABB274 -m 00000000000000000 download
+        py $macos_pkg_dir/macrecovery.py -b Mac-E43C1C25D4880AD6 -m 00000000000000000 download
     else
         echo "Recovery image not specified"
         echo "Options: sur | monterey"
@@ -201,8 +201,8 @@ compile_aml() {
         exit 10
     fi
     compiler_dir=$root_dir/TOOLS/ACPI/iasl.exe
-    $compiler_dir "$2"
-    echo "Compiled AML is in the same directory as $2"
+    $compiler_dir "$1"
+    echo "Compiled AML is in the same directory as $1"
 }   
 
 # Options
